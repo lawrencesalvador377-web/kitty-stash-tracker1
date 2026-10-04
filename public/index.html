@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Kitty Stash</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap');
+        
+        body {
+            font-family: 'Patrick Hand', cursive;
+            margin: 0;
+            padding: 0;
+            background-color: #fdfaf2;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+            color: #292524;
+        }
+
+        .scrapbook-shadow {
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.8);
+        }
+
+        .scrapbook-shadow-hover {
+            transition: all 0.2s ease;
+        }
+        
+        .scrapbook-shadow-hover:hover {
+            box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.8);
+            transform: translateY(-2px) translateX(-2px);
+        }
+
+        .scrapbook-shadow-hover:active {
+            box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+            transform: translateY(2px) translateX(2px);
+        }
+
+        /* SVG icon wrapper utility */
+        .icon-sm { width: 16px; height: 16px; display: inline-block; }
+        .icon-md { width: 24px; height: 24px; display: inline-block; }
+        .icon-lg { width: 32px; height: 32px; display: inline-block; }
+        .icon-xl { width: 40px; height: 40px; display: inline-block; }
+        .icon-xxl { width: 56px; height: 56px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Image compression utility
+        const compressImage = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const MAX_WIDTH = 600;
+                        let scaleSize = 1;
+                        if (img.width > MAX_WIDTH) {
+                            scaleSize = MAX_WIDTH / img.width;
+                        }
+                        canvas.width = img.width * scaleSize;
+                        canvas.height = img.height * scaleSize;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.5));
+                    };
+                };
+            });
+        };
+
+        function App() {
+            // State management
+            const [savings, setSavings] = useState([]);
+            const [goal, setGoal] = useState(50000);
+            const [isEditingGoal, setIsEditingGoal] = useState(false);
+            const [newGoalInput, setNewGoalInput] = useState("");
+            
+            const [amount, setAmount] = useState('');
+            const [note, setNote] = useState('');
+            const [file, setFile] = useState(null);
+            const [previewUrl, setPreviewUrl] = useState(null);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            
+            const [selectedImage, setSelectedImage] = useState(null);
+            const [rewardCatUrl, setRewardCatUrl] = useState(null);
+            const fileInputRef = useRef(null);
+
+            // Re-initialize Lucide icons after renders
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            });
+
+            // Local Storage syncing
+            useEffect(() => {
+                const savedData = localStorage.getItem('kittyStashSavings');
+                if (savedData) {
+                    try {
+                        setSavings(JSON.parse(savedData));
+                    } catch (e) {
+                        console.error("Failed to parse local savings data", e);
+                    }
+                }
+                const savedGoal = localStorage.getItem('kittyStashGoal');
+                if (savedGoal) {
+                    setGoal(Number(savedGoal));
+                }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('kittyStashSavings', JSON.stringify(savings));
+            }, [savings]);
+
+            useEffect(() => {
+                localStorage.setItem('kittyStashGoal', goal.toString());
+            }, [goal]);
+
+            const handleFileChange = (e) => {
+                const selectedFile = e.target.files[0];
+                if (selectedFile) {
+                    setFile(selectedFile);
+                    const url = URL.createObjectURL(selectedFile);
+                    setPreviewUrl(url);
+                }
+            };
+
+            const handleClearFile = () => {
+                setFile(null);
+                setPreviewUrl(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = "";
+                }
+            };
+
+            const sendEmailNotification = async (savedAmount, savedNote) => {
+                console.log(`Mock Email Sent: Amount: ${savedAmount}, Note: ${savedNote}`);
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!amount || isSubmitting) return;
+
+                setIsSubmitting(true);
+                try {
+                    let base64Image = null;
+                    if (file) {
+                        base64Image = await compressImage(file);
+                    }
+
+                    const newEntry = {
+                        id: Date.now().toString(),
+                        amount: parseFloat(amount),
+                        note: note,
+                        imageUrl: base64Image,
+                        timestamp: Date.now(),
+                    };
+
+                    setSavings(prev => [newEntry, ...prev].sort((a, b) => b.timestamp - a.timestamp));
+
+                    await sendEmailNotification(amount, note);
+
+                    // Reset form
+                    setAmount('');
+                    setNote('');
+                    handleClearFile();
+                    
+                    // Fetch cat reward
+                    try {
+                        const catRes = await fetch('https://api.thecatapi.com/v1/images/search');
+                        const catData = await catRes.json();
+                        if (catData && catData.length > 0) {
+                            setRewardCatUrl(catData[0].url);
+                        }
+                    } catch (catErr) {
+                        console.error("Error fetching cat:", catErr);
+                    }
+                    
+                } catch (error) {
+                    console.error("Error adding savings:", error);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            };
+
+            const handleDelete = (id) => {
+                setSavings(prev => prev.filter(item => item.id !== id));
+            };
+
+            const handleUpdateGoal = () => {
+                const newAmount = parseFloat(newGoalInput);
+                if (isNaN(newAmount) || newAmount <= 0) {
+                    setIsEditingGoal(false);
+                    return;
+                }
+                setGoal(newAmount);
+                setIsEditingGoal(false);
+            };
+
+            const totalSaved = savings.reduce((sum, item) => sum + (item.amount || 0), 0);
+            const progressPercent = Math.min((totalSaved / goal) * 100, 100);
+
+            const formatCurrency = (val) => {
+                return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
+            };
+
+            const formatDate = (ts) => {
+                return new Intl.DateTimeFormat('en-US', { 
+                    month: 'short', day: 'numeric', year: 'numeric'
+                }).format(new Date(ts));
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 relative overflow-x-hidden selection:bg-rose-200">
+                    
+                    {/* Decorative Elements */}
+                    <div className="absolute top-12 left-8 text-rose-200 opacity-60 -rotate-12"><i data-lucide="paw-print" className="icon-xxl"></i></div>
+                    <div className="absolute top-40 right-12 text-teal-200 opacity-60 rotate-45"><i data-lucide="paw-print" className="icon-xl"></i></div>
+                    <div className="absolute bottom-20 left-16 text-amber-200 opacity-60 rotate-12"><i data-lucide="paw-print" style={{width: '100px', height: '100px'}}></i></div>
+                    
+                    <div className="max-w-2xl mx-auto space-y-12 relative z-10">
+                        
+                        {/* Header */}
+                        <header className="text-center space-y-4 relative mt-8">
+                            <h1 className="text-4xl md:text-5xl font-bold text-stone-800 flex items-center justify-center gap-3">
+                                <span className="inline-block -rotate-6 text-rose-500"><i data-lucide="cat" className="icon-xl"></i></span>
+                                Our Kitty Stash
+                                <span className="inline-block rotate-6 text-teal-500"><i data-lucide="cat" className="icon-xl"></i></span>
+                            </h1>
+                            <p className="text-xl text-stone-600 border-b-2 border-dotted border-stone-400 inline-block pb-1 px-4 rotate-1">
+                                Saving up together, one paw at a time!
+                            </p>
+                        </header>
+
+                        {/* Goal Dashboard */}
+                        <div className="bg-[#fff9e6] rounded-xl p-6 md:p-8 border-2 border-stone-800 scrapbook-shadow relative transform rotate-[-1deg]">
+                            <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 w-24 h-6 bg-rose-200/80 rotate-2 border-x-2 border-stone-800 opacity-90"></div>
+                            
+                            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-6">
+                                <div className="text-center md:text-left">
+                                    <p className="text-lg text-stone-500 font-bold mb-1">Current Stash</p>
+                                    <h2 className="text-5xl font-bold text-teal-600 underline decoration-wavy decoration-teal-300">
+                                        {formatCurrency(totalSaved)}
+                                    </h2>
+                                </div>
+                                
+                                <div className="text-center md:text-right flex flex-col items-center md:items-end">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-lg text-stone-500 font-bold">Goal</p>
+                                        {!isEditingGoal && (
+                                            <button onClick={() => { setIsEditingGoal(true); setNewGoalInput(goal.toString()); }} className="text-stone-400 hover:text-stone-800 transition-colors">
+                                                <i data-lucide="pen-line" className="icon-sm"></i>
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    {isEditingGoal ? (
+                                        <div className="flex items-center gap-2 bg-white border-2 border-dashed border-stone-400 p-1 rounded-lg">
+                                            <input 
+                                                type="number" 
+                                                className="w-28 focus:outline-none text-xl font-bold text-stone-700 bg-transparent px-2 font-hand"
+                                                value={newGoalInput}
+                                                onChange={(e) => setNewGoalInput(e.target.value)}
+                                                autoFocus
+                                            />
+                                            <button onClick={handleUpdateGoal} className="bg-teal-200 text-stone-800 p-1 rounded border-2 border-stone-800 hover:bg-teal-300 transition flex items-center justify-center">
+                                                <i data-lucide="check" className="icon-sm"></i>
+                                            </button>
+                                            <button onClick={() => setIsEditingGoal(false)} className="bg-rose-200 text-stone-800 p-1 rounded border-2 border-stone-800 hover:bg-rose-300 transition flex items-center justify-center">
+                                                <i data-lucide="x" className="icon-sm"></i>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <h3 className="text-3xl font-bold text-rose-500">{formatCurrency(goal)}</h3>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="relative h-10 bg-white rounded-lg border-2 border-stone-800 overflow-hidden mb-2">
+                                <div 
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-teal-200 via-rose-200 to-amber-200 transition-all duration-1000 ease-out border-r-2 border-stone-800 flex items-center justify-end px-3"
+                                    style={{ width: `${progressPercent}%` }}
+                                >
+                                    {progressPercent > 5 && <span className="text-xl font-bold text-stone-800 flex items-center gap-1"><i data-lucide="cat" className="icon-sm"></i> {progressPercent.toFixed(0)}%</span>}
+                                </div>
+                            </div>
+                            <p className="text-center text-lg text-stone-600">
+                                {progressPercent >= 100 ? "Goal reached! We did it! 🎉" : `${formatCurrency(Math.max(0, goal - totalSaved))} more to go!`}
+                            </p>
+                        </div>
+
+                        {/* Add Deposit Form */}
+                        <div className="bg-[#f0f9f6] rounded-xl p-6 md:p-8 border-2 border-dashed border-stone-800 scrapbook-shadow relative transform rotate-1">
+                            <div className="absolute top-[-10px] right-8 w-16 h-6 bg-teal-200/80 -rotate-3 border-x-2 border-stone-800"></div>
+
+                            <h3 className="text-2xl font-bold text-stone-800 mb-6 flex items-center gap-2">
+                                <span className="bg-stone-800 text-[#f0f9f6] rounded-full p-1 flex items-center justify-center"><i data-lucide="plus" className="icon-md"></i></span>
+                                Add to the Stash
+                            </h3>
+                            
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-lg font-bold text-stone-700 ml-1 block border-b-2 border-dotted border-stone-300 w-max">Amount Saved</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500 font-bold text-xl">₱</span>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                required
+                                                value={amount}
+                                                onChange={(e) => setAmount(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 bg-white border-2 border-stone-800 rounded-lg focus:outline-none focus:bg-[#fff9e6] transition-colors text-stone-800 font-bold text-xl font-hand"
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-lg font-bold text-stone-700 ml-1 block border-b-2 border-dotted border-stone-300 w-max">Sweet Note (Optional)</label>
+                                        <input
+                                            type="text"
+                                            value={note}
+                                            onChange={(e) => setNote(e.target.value)}
+                                            className="w-full px-4 py-3 bg-white border-2 border-stone-800 rounded-lg focus:outline-none focus:bg-[#fff9e6] transition-colors text-stone-800 text-xl font-hand"
+                                            placeholder="Extra from groceries..."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-lg font-bold text-stone-700 ml-1 block border-b-2 border-dotted border-stone-300 w-max">Attach Proof (Receipt/Transfer)</label>
+                                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full sm:w-auto flex-1 border-2 border-stone-800 bg-amber-100 transition-colors rounded-lg p-4 flex flex-col items-center justify-center gap-2 text-stone-800 cursor-pointer scrapbook-shadow-hover"
+                                        >
+                                            <i data-lucide="upload" className="icon-md"></i>
+                                            <span className="text-lg font-bold">{file ? "Change Image" : "Clip a Photo"}</span>
+                                        </button>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            ref={fileInputRef}
+                                            onChange={handleFileChange}
+                                        />
+                                        
+                                        {previewUrl && (
+                                            <div className="relative w-32 h-32 rounded-lg border-2 border-stone-800 bg-white p-1 transform rotate-2">
+                                                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover rounded" />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleClearFile}
+                                                    className="absolute -top-3 -right-3 bg-rose-400 text-white border-2 border-stone-800 rounded-full p-1 hover:bg-rose-500 transition flex items-center justify-center"
+                                                >
+                                                    <i data-lucide="x" className="icon-sm"></i>
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting || !amount}
+                                    className="w-full bg-teal-400 text-stone-900 font-bold text-2xl py-4 border-2 border-stone-800 rounded-lg scrapbook-shadow-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 mt-4"
+                                >
+                                    {isSubmitting ? 'Clipping it in...' : <><i data-lucide="paw-print" className="icon-md"></i> Add to Scrapbook</>}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* History / Scrapbook Layout */}
+                        <div className="space-y-6 pt-6">
+                            <h3 className="text-3xl font-bold text-stone-800 flex items-center gap-2 border-b-4 border-dotted border-rose-300 pb-2 inline-block">
+                                Our Journey
+                            </h3>
+                            
+                            {savings.length === 0 ? (
+                                <div className="text-center py-12 bg-white rounded-xl border-2 border-dashed border-stone-400 shadow-sm transform -rotate-1">
+                                    <div className="flex justify-center mb-4"><i data-lucide="cat" className="text-stone-300 icon-xxl"></i></div>
+                                    <p className="text-xl text-stone-500">The scrapbook is empty. Let's make our first deposit!</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-6 sm:grid-cols-2">
+                                    {savings.map((entry, index) => {
+                                        const rotations = ["-rotate-2", "rotate-2", "-rotate-1", "rotate-3"];
+                                        const rotation = rotations[index % rotations.length];
+                                        const pinColors = ["bg-rose-400", "bg-teal-400", "bg-amber-400"];
+                                        const pinColor = pinColors[index % pinColors.length];
+
+                                        return (
+                                            <div key={entry.id} className={`bg-white p-3 pb-6 rounded-sm border-2 border-stone-800 scrapbook-shadow relative ${rotation} group transition-transform hover:z-10 hover:scale-105`}>
+                                                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full ${pinColor} border-2 border-stone-800 shadow-sm z-10`}></div>
+                                                
+                                                <div className="w-full h-40 bg-stone-100 border-2 border-stone-800 mb-3 overflow-hidden flex items-center justify-center relative cursor-pointer"
+                                                     onClick={() => entry.imageUrl ? setSelectedImage(entry.imageUrl) : null}>
+                                                    {entry.imageUrl ? (
+                                                        <img src={entry.imageUrl} alt="Proof" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="text-stone-300 flex flex-col items-center">
+                                                            <i data-lucide="image" className="icon-xl"></i>
+                                                            <span className="text-sm mt-2">No photo attached</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div className="px-2 text-center relative">
+                                                    <span className="block font-bold text-3xl text-stone-800">{formatCurrency(entry.amount)}</span>
+                                                    <span className="block text-lg text-stone-500 mt-1 border-b border-dotted border-stone-300 mx-auto w-fit pb-1">{formatDate(entry.timestamp)}</span>
+                                                    {entry.note && (
+                                                        <p className="mt-2 text-lg text-stone-600 italic">"{entry.note}"</p>
+                                                    )}
+                                                </div>
+
+                                                <button 
+                                                    onClick={() => handleDelete(entry.id)}
+                                                    className="absolute bottom-2 right-2 p-2 text-stone-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors opacity-0 group-hover:opacity-100 flex items-center justify-center"
+                                                    title="Remove snippet"
+                                                >
+                                                    <i data-lucide="trash-2" className="icon-sm"></i>
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Modals */}
+                    {selectedImage && (
+                        <div 
+                            className="fixed inset-0 z-50 bg-stone-900/60 flex items-center justify-center p-4 backdrop-blur-sm"
+                            onClick={() => setSelectedImage(null)}
+                        >
+                            <div className="relative max-w-3xl w-full flex flex-col items-center justify-center transition-all">
+                                <button 
+                                    className="absolute -top-12 right-0 bg-white text-stone-800 border-2 border-stone-800 p-2 hover:bg-rose-200 rounded-full transition scrapbook-shadow flex items-center justify-center"
+                                    onClick={() => setSelectedImage(null)}
+                                >
+                                    <i data-lucide="x" className="icon-md"></i>
+                                </button>
+                                <img 
+                                    src={selectedImage} 
+                                    alt="Proof Full Size" 
+                                    className="max-w-full max-h-[85vh] bg-white p-4 pb-12 rounded-sm border-2 border-stone-800 shadow-[8px_8px_0px_rgba(0,0,0,0.8)] object-contain rotate-1"
+                                    onClick={(e) => e.stopPropagation()} 
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {rewardCatUrl && (
+                        <div 
+                            className="fixed inset-0 z-50 bg-stone-900/60 flex items-center justify-center p-4 backdrop-blur-sm transition-all"
+                            onClick={() => setRewardCatUrl(null)}
+                        >
+                            <div 
+                                className="bg-[#fff9e6] p-6 pb-8 rounded-sm max-w-sm w-full text-center space-y-4 shadow-[8px_8px_0px_rgba(0,0,0,0.8)] border-2 border-stone-800 transform rotate-[-2deg] relative"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 w-20 h-8 bg-teal-200/80 rotate-3 border-x-2 border-stone-800"></div>
+                                
+                                <h2 className="text-3xl font-bold text-stone-800 flex justify-center items-center gap-2 mt-4">
+                                    <span className="text-rose-400 flex"><i data-lucide="cat" className="icon-lg"></i></span> Meow-velous!
+                                </h2>
+                                <p className="text-xl text-stone-600 leading-tight">Another successful save! Here is a furry friend to celebrate.</p>
+                                
+                                <div className="rounded-sm overflow-hidden border-2 border-stone-800 bg-white p-2 shadow-inner">
+                                    <img src={rewardCatUrl} alt="Reward Cat" className="w-full h-56 object-cover border-2 border-stone-800" />
+                                </div>
+                                
+                                <button 
+                                    className="w-full bg-amber-300 text-stone-900 font-bold text-xl py-3 border-2 border-stone-800 rounded-lg hover:-translate-y-1 hover:shadow-[4px_4px_0px_rgba(0,0,0,0.8)] transition-all mt-4"
+                                    onClick={() => setRewardCatUrl(null)}
+                                >
+                                    Close & Keep Saving!
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Render to DOM
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
