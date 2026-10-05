@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import Extras from "./Extras";
 import {
   Cat,
   PawPrint,
@@ -594,6 +595,8 @@ export default function App() {
           </div>
         ))}
       </div>
+
+      <Extras db={db} stashId={stashId} user={user} savings={savings} />
 
       {rewardCatUrl && (
         <div className="modal" onClick={() => setRewardCatUrl(null)}>
