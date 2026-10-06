@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
+import Bonus from "./Bonus";
+import Survival from "./Survival";
+import Quests from "./Quests";
 import Extras from "./Extras";
+import themeCss, { baseCss } from "./theme";
+import Insights from "./Insights";
 import {
   Cat,
   PawPrint,
@@ -73,6 +78,19 @@ const compressImage = (file) => {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [dark, setDark] = useState(() => {
+    try {
+      return localStorage.getItem("ks-theme") === "dark";
+    } catch (e) {
+      return false;
+    }
+  });
+  const toggleTheme = () => {
+    setDark(!dark);
+    try {
+      localStorage.setItem("ks-theme", !dark ? "dark" : "light");
+    } catch (e) {}
+  };
   const [stashId, setStashId] = useState(null);
 
   // Auth States
@@ -305,7 +323,16 @@ export default function App() {
   const shell = (children) => (
     <div className="ks" style={page}>
       <style>{css}</style>
+      <style>{baseCss}</style>
+      {dark && <style>{themeCss}</style>}
       <div className="wrap">{children}</div>
+      <button
+        className="btn ghost"
+        onClick={toggleTheme}
+        style={{ position: "fixed", bottom: 16, right: 16, zIndex: 5 }}
+      >
+        {dark ? "Light mode" : "Dark mode"}
+      </button>
     </div>
   );
 
@@ -595,9 +622,11 @@ export default function App() {
           </div>
         ))}
       </div>
-
+      <Survival db={db} stashId={stashId} savings={savings} />
+      <Bonus db={db} stashId={stashId} savings={savings} />
+      <Insights savings={savings} goal={goal} />
       <Extras db={db} stashId={stashId} user={user} savings={savings} />
-
+      <Quests db={db} stashId={stashId} user={user} savings={savings} />
       {rewardCatUrl && (
         <div className="modal" onClick={() => setRewardCatUrl(null)}>
           <h2 style={{ margin: 0 }}>Purrfect! Here's your cat.</h2>
