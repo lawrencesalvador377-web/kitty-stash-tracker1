@@ -10,7 +10,11 @@ import {
 import { Calendar, Mail, Landmark, Trash2 } from "lucide-react";
 
 // Fill these in from emailjs.com to turn emails on. Leave blank and emails are skipped.
-const EMAILJS = { service: "", template: "", key: "" };
+const EMAILJS = {
+  service: "service_m4s2v9h",
+  template: "template_0poudt2",
+  key: "2Okhunx5Pk61ccrUC",
+};
 
 const sendEmail = async (to, subject, message) => {
   if (!EMAILJS.service || !to) return false;
